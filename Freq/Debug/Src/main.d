@@ -29,7 +29,8 @@ Src/main.o: ../Src/main.c \
  C:/Users/damit/Desktop/STM32F/STM32F407/STM32F4-Discovery_FW_V1.1.0/My\ Projects/Stm32F407/Freq/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr.h \
  C:/Users/damit/Desktop/STM32F/STM32F407/STM32F4-Discovery_FW_V1.1.0/My\ Projects/Stm32F407/Freq/Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pwr_ex.h \
  C:/Users/damit/Desktop/STM32F/STM32F407/STM32F4-Discovery_FW_V1.1.0/My\ Projects/Stm32F407/Freq/Inc/MY_CS43L22.h \
- C:/Users/damit/Desktop/STM32F/STM32F407/STM32F4-Discovery_FW_V1.1.0/My\ Projects/Stm32F407/Freq/Inc/pdm_fir.h
+ C:/Users/damit/Desktop/STM32F/STM32F407/STM32F4-Discovery_FW_V1.1.0/My\ Projects/Stm32F407/Freq/Inc/pdm_fir.h \
+ C:/Users/damit/Desktop/STM32F/STM32F407/STM32F4-Discovery_FW_V1.1.0/My\ Projects/Stm32F407/Freq/Inc/arm_math.h
 
 C:/Users/damit/Desktop/STM32F/STM32F407/STM32F4-Discovery_FW_V1.1.0/My\ Projects/Stm32F407/Freq/Inc/main.h:
 
@@ -92,3 +93,5 @@ C:/Users/damit/Desktop/STM32F/STM32F407/STM32F4-Discovery_FW_V1.1.0/My\ Projects
 C:/Users/damit/Desktop/STM32F/STM32F407/STM32F4-Discovery_FW_V1.1.0/My\ Projects/Stm32F407/Freq/Inc/MY_CS43L22.h:
 
 C:/Users/damit/Desktop/STM32F/STM32F407/STM32F4-Discovery_FW_V1.1.0/My\ Projects/Stm32F407/Freq/Inc/pdm_fir.h:
+
+C:/Users/damit/Desktop/STM32F/STM32F407/STM32F4-Discovery_FW_V1.1.0/My\ Projects/Stm32F407/Freq/Inc/arm_math.h:

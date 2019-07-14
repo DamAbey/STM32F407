@@ -45,6 +45,7 @@
 /* USER CODE BEGIN Includes */
 #include "MY_CS43L22.h"
 #include "pdm_fir.h"
+#include "arm_math.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -73,6 +74,8 @@ DMA_HandleTypeDef hdma_spi3_tx;
 
 #define PDM_BUFFER_SIZE 320
 #define PCM_BUFFER_SIZE 320
+#define SAMPLES                    128 // fft bin size= 32kHz/128= 250
+#define FFT_SIZE                SAMPLES / 2
 
 //int16_t PCM_buffer[PCM_BUFFER_SIZE];
 //int16_t PCM_buffer_Filt[PCM_BUFFER_SIZE];
@@ -114,6 +117,11 @@ int main(void)
 	static uint16_t peakIndex[3];
 	uint16_t ind=0;
 	float frequency;
+	arm_cfft_radix4_instance_f32 S;
+	float32_t Input[SAMPLES];
+	float32_t Output[FFT_SIZE];
+	float32_t maxValue;
+	uint32_t maxIndex;
 
 
   /* USER CODE END 1 */
@@ -191,6 +199,17 @@ int main(void)
 	  }
 	  frequency=(32000.0/((peakIndex[0]+(peakIndex[1]-peakIndex[0])+(peakIndex[2]-peakIndex[1]))/3.0));
 	  //frequency=(32000.0/(peakIndex[0]));
+
+	  //fft
+	  for (int i=0; i< (SAMPLES);i++)
+	  {
+		  Input[i]=(float32_t)PDM_buffer[i]; // create an array for fft with fft size
+	  }
+	  arm_cfft_radix4_init_f32(&S, FFT_SIZE, 0, 1);// initialise fft
+	  arm_cfft_radix4_f32(&S, Input);	//
+	  arm_cmplx_mag_f32(Input, Output, FFT_SIZE);// output array contains fft magnitudes for each bin.
+	  arm_max_f32(Output, FFT_SIZE, &maxValue, &maxIndex);
+
   }
   /* USER CODE END 3 */
 }
