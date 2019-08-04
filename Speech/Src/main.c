@@ -45,6 +45,8 @@
 /* USER CODE BEGIN Includes */
 #include "MY_CS43L22.h"
 #include "pdm_fir.h"
+#include <stdio.h>
+#include <audio_data.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -69,10 +71,13 @@ I2S_HandleTypeDef hi2s2;
 I2S_HandleTypeDef hi2s3;
 DMA_HandleTypeDef hdma_spi3_tx;
 
+UART_HandleTypeDef huart2;
+
 /* USER CODE BEGIN PV */
 
-#define PDM_BUFFER_SIZE 64000
-#define PCM_BUFFER_SIZE 64000
+#define PDM_BUFFER_SIZE 32000
+#define PCM_BUFFER_SIZE 32000
+#define SPEECH_DATA_SIZE	8000
 
 //int16_t PCM_buffer[PCM_BUFFER_SIZE];
 //int16_t PCM_buffer_Filt[PCM_BUFFER_SIZE];
@@ -88,7 +93,10 @@ static void MX_DMA_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_I2S3_Init(void);
 static void MX_I2S2_Init(void);
+static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
+
+void UART_16_Tx(int16_t Data);
 
 /* USER CODE END PFP */
 
@@ -110,6 +118,19 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
 	int16_t PDM_buffer[PDM_BUFFER_SIZE];
+	int32_t CC[SPEECH_DATA_SIZE];
+	int32_t CC_ON_Max=0;
+	uint16_t CC_ON_Max_ind=0;
+	//uint32_t CC[SPEECH_DATA_SIZE];
+	int32_t CC_OFF_Max=0;
+	uint16_t CC_OFF_Max_ind=0;
+	//uint16_t Recoard_Data[SPEECH_DATA_SIZE];
+	//int16_t Recoard_Max;
+	uint8_t flag=0;
+	uint16_t ch[3]= {0xAAAA, 0xAAAA, 0xAAAA};
+	int32_t Recoard_AVG;
+	int32_t Recoard_SUM=0;
+
 
 
   /* USER CODE END 1 */
@@ -136,17 +157,23 @@ int main(void)
   MX_I2C1_Init();
   MX_I2S3_Init();
   MX_I2S2_Init();
+  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
   CS43_Init(hi2c1, MODE_I2S);
-  CS43_SetVolume(50); //0 - 100,, 40
+  CS43_SetVolume(10); //0 - 100,, 40
   CS43_Enable_RightLeft(CS43_RIGHT);
   CS43_Start();
+
 
   /* Enable CRC module */
  // RCC->AHB1ENR |= RCC_AHB1ENR_CRCEN;
   pdm_fir_flt_init(&Filter);
   //HAL_I2S_Transmit_DMA(&hi2s3, (uint16_t *)PCM_buffer_Filt, PCM_BUFFER_SIZE);
   //HAL_I2S_Receive_DMA(&hi2s2, (uint16_t *)PDM_buffer, PCM_BUFFER_SIZE);
+  HAL_I2S_Receive(&hi2s2, PDM_buffer, PDM_BUFFER_SIZE, 1000);
+  HAL_I2S_Receive(&hi2s2, PDM_buffer, PDM_BUFFER_SIZE, 1000);
+  HAL_I2S_Receive(&hi2s2, PDM_buffer, PDM_BUFFER_SIZE, 1000);
+
 
   /* USER CODE END 2 */
 
@@ -158,15 +185,142 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-	  HAL_I2S_Receive(&hi2s2, PDM_buffer, PDM_BUFFER_SIZE, 1000);
-	  for (int j=0; j<PDM_BUFFER_SIZE; j++)
+	  //UART_16_Tx(ch, 3);
+	  //sprintf(CH, "Value = %d", 1);
+	  //HAL_UART_Transmit(&huart2, &CH, sizeof(CH), 0x000F);
+
+
+	  if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0)) // If the User button is pressed, recoard
 	  {
-	  pdm_fir_flt_put(&Filter, PDM_buffer[j]);//PDM_buffer[j]
-	  PDM_buffer[j]=pdm_fir_flt_get(&Filter, 16);
+		  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, GPIO_PIN_SET);
+		  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_RESET);
+		  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_RESET);
+
+  		  HAL_I2S_Receive(&hi2s2, PDM_buffer, PDM_BUFFER_SIZE, 1000);
+		  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, GPIO_PIN_RESET);
+
+		  for (int j=0; j<PDM_BUFFER_SIZE; j++)
+		  {
+		  pdm_fir_flt_put(&Filter, PDM_buffer[j]);//PDM_buffer[j]
+		  PDM_buffer[j]=pdm_fir_flt_get(&Filter, 16);
+		   }
+		  HAL_Delay(1000);
+		  HAL_I2S_Transmit(&hi2s3, (uint16_t *)PDM_buffer, PCM_BUFFER_SIZE,1000);
+
+		  Recoard_AVG=0;
+		  Recoard_SUM=0;
+
+		  for(int j=0; j<PDM_BUFFER_SIZE; j=j+4)
+		  {
+			  //PDM_buffer[j/4]=(PDM_buffer[j]>>6); //divide by 64 to reduce the magnitudes
+
+			  PDM_buffer[j/4]=(PDM_buffer[j]>>4);
+
+		  }
+
+		  /*for (int j=0;j<SPEECH_DATA_SIZE; j=j+1)
+		  {
+			  PDM_buffer[j]=OFF[j];
+		  }*/
+
+		  for(int j=0; j<4096; j=j+1)
+		  {
+				  Recoard_SUM=Recoard_SUM+PDM_buffer[j];
+				  Recoard_AVG=Recoard_SUM>>12;
+		  }
+
+
+		  for(int j=0; j<PDM_BUFFER_SIZE; j=j+1)
+		  {
+			  if(j<8000)
+			  {
+				  PDM_buffer[j]=PDM_buffer[j]-Recoard_AVG;
+				  if((PDM_buffer[j]<125) & (PDM_buffer[j]>-125) )
+				  {
+					  PDM_buffer[j]=0;
+				  }
+			  }
+			  if(j>=8000)
+			  PDM_buffer[j]=0;
+		  }
+
+
+
+
+		  UART_16_Tx(ch[1]);
+		  for (int j=0;j<SPEECH_DATA_SIZE; j=j+1)
+		  {
+		  UART_16_Tx(PDM_buffer[j]);
+		  }
+
+
+		  flag=1;
+
+		  ///////////////
+		  /*
+		  SEND DATA THROUGH UART
+		  UART_16_Tx(ch, 3);
+		  for (int j=0;j<PDM_BUFFER_SIZE; j=j+4)
+		  {
+		  UART_16_Tx(PDM_buffer[j], 1);
+		  }
+		  */
+		  //////////////
+
 	  }
+	  else // if the user button is not pressed play
+	  {
+		  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, GPIO_PIN_RESET);
+		  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_SET);
+		  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_RESET);
+		  HAL_I2S_Transmit(&hi2s3, (uint16_t *)PDM_buffer, PCM_BUFFER_SIZE,1000);
+		  //HAL_Delay(1000);
+		  if(flag==1)
+		  {
+			  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_RESET);
+			  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_SET);
+
+		  for(int j=0; j < (SPEECH_DATA_SIZE) ; j++)
+		  {
+		    CC[j] = 0;
+		    for(int k=0; k < ((SPEECH_DATA_SIZE)-j); k++){
+		    	CC[j] += (PDM_buffer[k])*(ON[k+j]);
+		    }
+
+		    if(CC[j]>CC_ON_Max)
+		    {
+		    	CC_ON_Max=CC[j];
+		    	CC_ON_Max_ind=j;
+		    }
+		  }
+
+
+		  for(int m=0; m < (SPEECH_DATA_SIZE) ; m++)
+		  {
+		    CC[m] = 0;
+		    for(int k=0; k < ((SPEECH_DATA_SIZE)-m); k++){
+		    	CC[m] += (PDM_buffer[k])*(OFF[k+m]);
+		    }
+
+		    if(CC[m]>CC_OFF_Max)
+		    {
+		    	CC_OFF_Max=CC[m];
+		    	CC_OFF_Max_ind=m;
+		    }
+		  }
+  		  HAL_Delay(1);
+		  flag=0;
+		  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_13, GPIO_PIN_RESET);
+		  }
+
+
+	  }
+
+
+
 	  //lowPassFrequency(&PCM_buffer, &PCM_buffer_Filt, 64000);
-	 HAL_I2S_Transmit(&hi2s3, (uint16_t *)PDM_buffer, PCM_BUFFER_SIZE,1000);
-	 HAL_Delay(1000);
+
+	 //HAL_Delay(1000);
 
   }
   /* USER CODE END 3 */
@@ -324,6 +478,39 @@ static void MX_I2S3_Init(void)
 
 }
 
+/**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+
+}
+
 /** 
   * Enable DMA controller clock
   */
@@ -359,6 +546,12 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOD, LED_Green_Pin|LED_Orange_Pin|LED_Red_Pin|LED_Blue_Pin 
                           |Audio_Reset_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin : PA0 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
   /*Configure GPIO pins : LED_Green_Pin LED_Orange_Pin LED_Red_Pin LED_Blue_Pin 
                            Audio_Reset_Pin */
   GPIO_InitStruct.Pin = LED_Green_Pin|LED_Orange_Pin|LED_Red_Pin|LED_Blue_Pin 
@@ -371,6 +564,32 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+void UART_16_Tx(int16_t Data)
+{
+	uint8_t temp[4];
+	uint8_t high;
+	uint8_t low;
+
+
+		/*temp= (uint8_t)(Data[i]>>8);
+		HAL_UART_Transmit(&huart2, &temp, 1, 0x000F);
+		temp= (uint8_t)Data[i];
+		HAL_UART_Transmit(&huart2, &temp, 1, 0x000F);
+		temp=0X32;
+		HAL_UART_Transmit(&huart2, &temp, 1, 0x000F);
+		*/
+
+		high= (int8_t)(Data>>8);
+		low= (int8_t)Data;
+		sprintf(temp, "%02x%02x",high,low);
+		HAL_UART_Transmit(&huart2, &temp, sizeof(temp), 0x000F);
+		temp[0]='\n';
+		HAL_UART_Transmit(&huart2, &temp, 1, 0x000F);
+
+
+
+}
 
 /* USER CODE END 4 */
 

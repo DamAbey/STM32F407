@@ -1,0 +1,7 @@
+FFT:
+http://stm32f4-discovery.net/2014/10/stm32f4-fft-example/
+https://www.youtube.com/watch?v=gIh0pPsyGpI
+
+Auto correlation: 
+https://www.instructables.com/id/Reliable-Frequency-Detection-Using-DSP-Techniques/
+http://qingkaikong.blogspot.com/2017/01/signal-processing-how-autocorrelation.html
